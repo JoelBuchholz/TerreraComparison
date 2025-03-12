@@ -5,6 +5,7 @@ export class TokenController {
     this.tokenService = tokenService;
   }
 
+
   formatRotationTime = (timestamp) => {
     return new Date(timestamp).toLocaleString('de-DE', {
       timeZone: 'Europe/Berlin',
@@ -12,6 +13,7 @@ export class TokenController {
       timeStyle: 'long'
     });
   };
+
 
   handleInitialTokenRequest = async (req, res) => {
     const tokenName = req.params.tokenName.toLowerCase();
@@ -24,10 +26,12 @@ export class TokenController {
     }
     try {
       const userToken = this.tokenService.generateUserRefreshToken(tokenName);
+      const expiryTimestamp = this.tokenService.tokens[tokenName].userRefreshTokenCreatedAt +
+                              this.tokenService.tokens[tokenName].userRefreshTokenExpiry;
       res.json({
         success: true,
         user_refresh_token: userToken,
-        user_refresh_token_expires_at: new Date(this.tokenService.tokens[tokenName].userRefreshTokenExpiry).toISOString(),
+        user_refresh_token_expires_at: this.formatRotationTime(expiryTimestamp),
         message: 'User refresh token generated. Use this as Bearer token for subsequent token rotation requests.'
       });
     } catch (error) {
@@ -54,13 +58,15 @@ export class TokenController {
         throw new TokenRotationError('Token rotation failed without error', 'UNKNOWN_FAILURE');
       }
       const newUserRefreshToken = this.tokenService.generateUserRefreshToken(tokenName);
+      const expiryTimestamp = this.tokenService.tokens[tokenName].userRefreshTokenCreatedAt +
+                              this.tokenService.tokens[tokenName].userRefreshTokenExpiry;
       res.json({
         success: true,
         access_token: this.tokenService.getAccessToken(tokenName),
         user_refresh_token: newUserRefreshToken,
-        user_refresh_token_expires_at: new Date(this.tokenService.tokens[tokenName].userRefreshTokenExpiry).toISOString(),
-        expires_in: 300,
-        next_rotation: this.formatRotationTime(Date.now() + 300000),
+        user_refresh_token_expires_at: this.formatRotationTime(expiryTimestamp),
+        expires_in: this.tokenService.externalTokenRotationInterval / 1000,
+        next_rotation: this.formatRotationTime(Date.now() + this.tokenService.externalTokenRotationInterval)
       });
     } catch (error) {
       const response = {

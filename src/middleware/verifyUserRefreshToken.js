@@ -1,4 +1,4 @@
-export const verifyUserRefreshToken = (tokenService) => (req, res, next) => {
+export const verifyUserRefreshToken = (tokenService) => (req, res, next) => { 
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized: Bearer token missing' });
@@ -10,7 +10,9 @@ export const verifyUserRefreshToken = (tokenService) => (req, res, next) => {
   if (!tokenData || !tokenData.userRefreshToken || providedToken !== tokenData.userRefreshToken) {
     return res.status(401).json({ error: 'Invalid user refresh token' });
   }
-  if (!tokenData.userRefreshTokenExpiry || Date.now() > tokenData.userRefreshTokenExpiry) {
+
+  if (!tokenData.userRefreshTokenExpiry || !tokenData.userRefreshTokenCreatedAt ||
+      Date.now() > (tokenData.userRefreshTokenCreatedAt + tokenData.userRefreshTokenExpiry)) {
     return res.status(401).json({ error: 'User refresh token expired' });
   }
   next();

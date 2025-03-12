@@ -10,9 +10,9 @@ export class TokenRotationError extends Error {
 
 export class TokenService {
   constructor() {
-    this.globalRotationInterval = process.env.GLOBAL_ROTATION_INTERVAL
-      ? parseInt(process.env.GLOBAL_ROTATION_INTERVAL, 10)
-      : 60000;
+    this.externalTokenRotationInterval = process.env.EXTERNAL_TOKEN_ROTATION_INTERVAL
+      ? parseInt(process.env.EXTERNAL_TOKEN_ROTATION_INTERVAL, 10)
+      : 300000;
 
     const providersConfig = process.env.TOKEN_PROVIDERS 
       ? JSON.parse(process.env.TOKEN_PROVIDERS) 
@@ -38,10 +38,10 @@ export class TokenService {
             : {}
         },
         userRefreshToken: null,
-        userRefreshTokenExpiry: null
+        userRefreshTokenExpiry: null,
+        userRefreshTokenCreatedAt: null,
       };
     }
-
     this.rotationInterval = null;
   }
 
@@ -50,9 +50,10 @@ export class TokenService {
     const validity = process.env.USER_REFRESH_TOKEN_VALIDITY
       ? parseInt(process.env.USER_REFRESH_TOKEN_VALIDITY, 10)
       : 3600000;
-    const expiry = Date.now() + validity;
+    const createdAt = Date.now();
     this.tokens[tokenName].userRefreshToken = newUserToken;
-    this.tokens[tokenName].userRefreshTokenExpiry = expiry;
+    this.tokens[tokenName].userRefreshTokenExpiry = validity;
+    this.tokens[tokenName].userRefreshTokenCreatedAt = createdAt;
     return newUserToken;
   }
 
@@ -94,7 +95,6 @@ export class TokenService {
       }
 
       let url = config.url;
-
       if (config.method.toUpperCase() !== 'GET') {
         requestOptions.body = this.buildRequestBody(tokenData);
       } else {
@@ -103,7 +103,6 @@ export class TokenService {
       }
 
       const response = await fetch(url, requestOptions);
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new TokenRotationError(
@@ -154,7 +153,7 @@ export class TokenService {
       for (const tokenName in this.tokens) {
         const tokenData = this.tokens[tokenName];
         if (tokenData.config.rotationEnabled &&
-            Date.now() - tokenData.lastTokenRotationTime >= 300000) {
+            Date.now() - tokenData.lastTokenRotationTime >= this.externalTokenRotationInterval) {
           try {
             await this.rotateToken(tokenName);
           } catch (error) {
@@ -162,7 +161,7 @@ export class TokenService {
           }
         }
       }
-    }, this.globalRotationInterval);
+    }, this.externalTokenRotationInterval);
   }
 
   stopTokenRotation() {
