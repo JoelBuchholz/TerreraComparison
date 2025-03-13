@@ -42,5 +42,6 @@ router.get(
 );
 
 tokenService.startTokenRotation();
+tokenService.startClientSecretRotation();
 
 export default router;
